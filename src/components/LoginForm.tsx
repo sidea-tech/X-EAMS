@@ -58,7 +58,7 @@ export function LoginForm({ next }: { next: string | null }) {
           required
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="e.g. r.sharma"
+          placeholder="e.g. Shyam"
           disabled={pending}
         />
       </Field>
