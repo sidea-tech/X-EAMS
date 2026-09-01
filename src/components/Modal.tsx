@@ -20,22 +20,44 @@ export function Modal({
   width?: string;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+
+  /*
+   * `onClose` is typically an inline arrow, so its identity changes on every
+   * parent render. Holding it in a ref keeps the setup effect below keyed on
+   * `open` alone — otherwise the effect re-ran on each keystroke and yanked
+   * focus out of the field being typed into.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
+
     // Prevent the page behind the dialog from scrolling.
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panel.current?.querySelector<HTMLElement>("input,select,textarea,button")?.focus();
+
+    // Focus the first usable field in the dialog *body*. Searching the whole
+    // panel would match the header's close button, which precedes the form.
+    body.current
+      ?.querySelector<HTMLElement>(
+        "input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled])",
+      )
+      ?.focus();
+
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -75,7 +97,9 @@ export function Modal({
           </button>
         </header>
 
-        <div className="px-5 py-4">{children}</div>
+        <div ref={body} className="px-5 py-4">
+          {children}
+        </div>
 
         {footer ? (
           <footer className="flex justify-end gap-2 border-t border-line px-5 py-3.5">

@@ -105,7 +105,7 @@ export function EmployeeManager({
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(needle));
     });
-  }, [employees, query, showInactive, ]);
+  }, [employees, query, showInactive]);
 
   function openCreate() {
     setForm(EMPTY_FORM);
