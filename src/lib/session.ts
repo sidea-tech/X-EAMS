@@ -56,8 +56,17 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   if (!user || !user.isActive || user.tokenVersion !== payload.ver) return null;
 
-  const { isActive: _isActive, tokenVersion: _tokenVersion, ...rest } = user;
-  return rest;
+  return {
+    id: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    employeeCode: user.employeeCode,
+    email: user.email,
+    department: user.department,
+    designation: user.designation,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+  };
 });
 
 /** For pages: redirects to /login instead of throwing. */

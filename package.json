@@ -1,12 +1,21 @@
 {
-  "name": "eams",
+  "name": "x-eams",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "build:no-migrate": "prisma generate && next build"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -29,5 +38,9 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"
+  },
+  "description": "Employee Attendance Management System — employee and admin portals with IN/OUT punch tracking.",
+  "engines": {
+    "node": ">=20"
   }
 }

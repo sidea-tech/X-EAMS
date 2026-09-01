@@ -136,3 +136,41 @@ export function formatDayKey(key: string): string {
     year: "numeric",
   }).format(dateFromDayKey(key));
 }
+
+/** Offset of `tz` from UTC, in minutes, at the given instant (DST-aware). */
+function tzOffsetMinutes(instant: Date, tz: string): number {
+  const p = zonedParts(instant, tz);
+  const asUtc = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+    Number(p.second),
+  );
+  const whole = Math.floor(instant.getTime() / 1000) * 1000;
+  return Math.round((asUtc - whole) / 60_000);
+}
+
+/**
+ * Company wall-clock time ("2026-09-01", "09:30") → the exact UTC instant.
+ * Iterates once to settle offsets that change across a DST boundary.
+ */
+export function wallTimeToInstant(key: string, hhmm: string, tz = appTimezone()): Date {
+  const [y, mo, d] = key.split("-").map(Number);
+  const minutes = parseHhMm(hhmm);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const naive = Date.UTC(y, mo - 1, d, h, m);
+  let ts = naive;
+  for (let i = 0; i < 2; i++) {
+    ts = naive - tzOffsetMinutes(new Date(ts), tz) * 60_000;
+  }
+  return new Date(ts);
+}
+
+/** Wall-clock "HH:mm" of `instant` in the company timezone, for form inputs. */
+export function toHhMmInput(instant: Date | null | undefined, tz = appTimezone()): string {
+  if (!instant) return "";
+  return formatMinutesOfDay(minutesOfDay(instant, tz));
+}
