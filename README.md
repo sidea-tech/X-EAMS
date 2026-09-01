@@ -107,6 +107,7 @@ Rotating `AUTH_SECRET` invalidates every active session — a valid emergency
 | `npm run db:seed` | Idempotent seed. |
 | `npm run db:setup` | `db:deploy` then `db:seed`. |
 | `npm run db:studio` | Prisma Studio. |
+| `npm run create-admin` | Create or reset an administrator (works over HTTPS). |
 
 ---
 
@@ -143,6 +144,21 @@ Rotating `AUTH_SECRET` invalidates every active session — a valid emergency
    The endpoint is inert without the token and refuses to run once any
    administrator exists. **Delete `BOOTSTRAP_TOKEN` from Vercel afterwards.**
 6. Sign in at `/login` and add your employees from **Admin → Employees**.
+
+### Creating an admin when port 5432 is blocked
+
+Many corporate networks block outbound PostgreSQL. Prisma Postgres also exposes
+your database over **HTTPS**, so the admin script works from anywhere:
+
+```bash
+# Connection strings → the string beginning prisma+postgres://
+ADMIN_DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=..." \
+  npm run create-admin -- admin 'YourStrongPass1' 'HR Administrator'
+```
+
+Re-running it for an existing username resets that password, clears any lockout
+and restores the account to an active administrator — so it is also the recovery
+path if you are ever locked out of every admin account.
 
 `GET /api/health` returns `{ ok, database }` for uptime monitoring.
 

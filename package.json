@@ -15,10 +15,12 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
-    "build:no-migrate": "prisma generate && next build"
+    "build:no-migrate": "prisma generate && next build",
+    "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@prisma/extension-accelerate": "^3.0.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.10",
     "next": "16.3.4",
