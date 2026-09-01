@@ -1,23 +1,21 @@
+import Image from "next/image";
 import { APP_NAME } from "@/lib/appConfig";
 
+/**
+ * The company mark. The artwork already carries its own circular badge, so it is
+ * rendered bare rather than inside a coloured tile.
+ */
 export function BrandMark({ size = 36 }: { size?: number }) {
   return (
-    <span
-      aria-hidden
-      className="grid shrink-0 place-items-center rounded-xl bg-brand text-brand-fg"
-      style={{ width: size, height: size }}
-    >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-        <path
-          d="M12 7v5.2l3.4 2"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
+    <Image
+      src="/Xicon.png"
+      alt=""
+      width={size}
+      height={size}
+      // Served in the sidebar of every page, so let it be cached eagerly.
+      priority
+      className="shrink-0 rounded-full"
+    />
   );
 }
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { BrandMark } from "@/components/Brand";
 import { LoginForm } from "@/components/LoginForm";
 import { Alert } from "@/components/ui";
@@ -44,12 +45,14 @@ export default async function LoginPage({
           }}
         />
         <div className="relative flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-white/15">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-              <path d="M12 7v5.2l3.4 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </span>
+          <Image
+            src="/Xicon.png"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="rounded-full ring-1 ring-white/20"
+          />
           <div className="leading-tight">
             <p className="font-semibold">{APP_NAME}</p>
             <p className="text-xs text-white/75">{APP_TAGLINE}</p>
