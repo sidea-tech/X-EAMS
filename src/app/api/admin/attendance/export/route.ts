@@ -1,7 +1,7 @@
 import { csvResponse, toCsv } from "@/lib/csv";
 import { handler } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { getPolicy } from "@/lib/policy";
+import { getPoliciesFor, getPolicy } from "@/lib/policy";
 import { requireApi } from "@/lib/session";
 import { dateFromDayKey, dayKey, dayKeyFromDate, formatMinutesOfDay, minutesOfDay } from "@/lib/time";
 import { dayKeySchema } from "@/lib/validation";
@@ -34,7 +34,7 @@ export const GET = handler(async (request: Request) => {
     take: 20_000,
   });
 
-  const tz = policy.timezone;
+  const { byUser: rowPolicies } = await getPoliciesFor([...new Set(rows.map((r) => r.userId))]);
   const csv = toCsv(
     [
       "Date",
@@ -49,9 +49,12 @@ export const GET = handler(async (request: Request) => {
       "Worked Minutes",
       "Late",
       "Early Out",
+      "Timezone",
       "Note",
     ],
-    rows.map((r) => [
+    rows.map((r) => {
+      const tz = rowPolicies.get(r.userId)?.timezone ?? policy.timezone;
+      return [
       dayKeyFromDate(r.date),
       r.user.employeeCode,
       r.user.fullName,
@@ -62,10 +65,12 @@ export const GET = handler(async (request: Request) => {
       r.lastCheckOut ? formatMinutesOfDay(minutesOfDay(r.lastCheckOut, tz)) : "",
       (r.workedMinutes / 60).toFixed(2),
       r.workedMinutes,
-      r.isLate ? "Yes" : "No",
-      r.isEarlyOut ? "Yes" : "No",
-      r.note ?? "",
-    ]),
+        r.isLate ? "Yes" : "No",
+        r.isEarlyOut ? "Yes" : "No",
+        tz,
+        r.note ?? "",
+      ];
+    }),
   );
 
   return csvResponse(`attendance_${from}_to_${to}.csv`, csv);

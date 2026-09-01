@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
-import { IconEdit, IconPlus, IconSearch } from "@/components/icons";
+import {
+  ScheduleDialog,
+  type OverrideDto,
+  type PolicyDefaults,
+} from "@/components/admin/ScheduleDialog";
+import { IconClock, IconEdit, IconPlus, IconSearch } from "@/components/icons";
 import {
   Alert,
   Badge,
@@ -31,6 +36,10 @@ export type EmployeeRow = {
   role: "EMPLOYEE" | "ADMIN";
   isActive: boolean;
   attendanceCount: number;
+  /** Null when this employee follows the company default schedule. */
+  schedule: OverrideDto | null;
+  /** Human-readable list of the fields this employee overrides. */
+  scheduleSummary: string[];
 };
 
 type FormState = {
@@ -78,10 +87,12 @@ export function EmployeeManager({
   employees,
   departments,
   currentAdminId,
+  policyDefaults,
 }: {
   employees: EmployeeRow[];
   departments: string[];
   currentAdminId: string;
+  policyDefaults: PolicyDefaults;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -95,6 +106,7 @@ export function EmployeeManager({
   const [formError, setFormError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [credential, setCredential] = useState<{ username: string; password: string } | null>(null);
+  const [scheduleFor, setScheduleFor] = useState<EmployeeRow | null>(null);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -275,6 +287,7 @@ export function EmployeeManager({
                 <Th>Username</Th>
                 <Th>Department</Th>
                 <Th>Role</Th>
+                <Th>Schedule</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
@@ -297,6 +310,18 @@ export function EmployeeManager({
                     </Badge>
                   </Td>
                   <Td>
+                    {row.schedule ? (
+                      <span className="flex flex-col gap-0.5">
+                        <Badge tone="brand">Custom</Badge>
+                        <span className="text-xs text-subtle">
+                          {row.scheduleSummary.join(" · ") || "custom"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-subtle">Company default</span>
+                    )}
+                  </Td>
+                  <Td>
                     <Badge tone={row.isActive ? "success" : "danger"}>
                       {row.isActive ? "Active" : "Inactive"}
                     </Badge>
@@ -306,6 +331,16 @@ export function EmployeeManager({
                       <Button size="sm" variant="secondary" onClick={() => openEdit(row)} disabled={busy}>
                         <IconEdit />
                         Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setScheduleFor(row)}
+                        disabled={busy}
+                        title="Set this employee's shift and working days"
+                      >
+                        <IconClock />
+                        Schedule
                       </Button>
                       <Button
                         size="sm"
@@ -440,6 +475,23 @@ export function EmployeeManager({
           </div>
         </form>
       </Modal>
+
+      {/* Per-employee schedule */}
+      {scheduleFor ? (
+        <ScheduleDialog
+          // Keyed so switching rows remounts the form with that row's values.
+          key={scheduleFor.id}
+          employee={scheduleFor}
+          defaults={policyDefaults}
+          override={scheduleFor.schedule}
+          onClose={() => setScheduleFor(null)}
+          onSaved={(message) => {
+            setScheduleFor(null);
+            setBanner({ tone: "success", text: message });
+            router.refresh();
+          }}
+        />
+      ) : null}
 
       {/* One-time credential hand-off */}
       <Modal

@@ -59,6 +59,10 @@ model User {
   editedRecords Attendance[] @relation("AttendanceEditor")
   auditLogs    AuditLog[]   @relation("AuditActor")
 
+  /// Per-employee overrides of the company work policy.
+  schedule        EmployeeSchedule?  @relation("OwnSchedule")
+  editedSchedules EmployeeSchedule[] @relation("ScheduleEditor")
+
   @@index([role, isActive])
   @@index([department])
 }
@@ -129,6 +133,35 @@ model WorkPolicy {
   timezone        String @default("Asia/Kolkata")
 
   updatedAt DateTime @updatedAt
+}
+
+/// Per-employee overrides of `WorkPolicy`. A null column — or an empty
+/// `workingDays` — means "inherit the company default for this field", so an
+/// employee can differ on only their shift times and follow the rest.
+model EmployeeSchedule {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation("OwnSchedule", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// "HH:mm" in this schedule's effective timezone.
+  workStart      String?
+  workEnd        String?
+  graceMinutes   Int?
+  fullDayMinutes Int?
+  halfDayMinutes Int?
+  /// Empty means inherit; otherwise weekday numbers (0 = Sunday).
+  workingDays    Int[]   @default([])
+  timezone       String?
+  /// Why this employee differs, shown to admins.
+  note           String?
+
+  updatedById String?
+  updatedBy   User?   @relation("ScheduleEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Holiday {

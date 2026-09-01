@@ -31,8 +31,10 @@ Built with Next.js 16 (App Router), TypeScript, Prisma + PostgreSQL and Tailwind
   total hours and attendance %, filterable by department.
 - **CSV exports** for both raw attendance and the monthly summary (Excel-safe,
   with formula-injection neutralised).
-- **Work policy** — shift times, late grace, full/half-day thresholds, working
-  weekdays and timezone.
+- **Default work policy** — shift times, late grace, full/half-day thresholds,
+  working weekdays and timezone.
+- **Per-employee schedules** — give an individual a different shift, thresholds,
+  working week or timezone; every unset field inherits the company default.
 - **Holiday calendar** — excluded from expected working days everywhere.
 - **Audit trail** of sign-ins, punches, corrections and admin actions.
 
@@ -164,6 +166,33 @@ path if you are ever locked out of every admin account.
 
 ---
 
+## Per-employee schedules
+
+The `WorkPolicy` row is the company default. An employee may additionally have an
+`EmployeeSchedule` row holding **only the fields that differ** — every other
+field inherits, so putting someone on an early shift needs just two values:
+
+| Field | Company default | Riya's override | Effective |
+| --- | --- | --- | --- |
+| Shift | 09:30–18:30 | 06:00–14:00 | **06:00–14:00** |
+| Late grace | 15 min | *(blank)* | **15 min** |
+| Full day | 480 min | 360 min | **360 min** |
+| Working days | Mon–Fri | *(blank)* | **Mon–Fri** |
+
+Set them in **Admin → Employees → Schedule**. A blank field shows the company
+value it will inherit, and **Follow company default** clears every override —
+which deletes the row rather than leaving a no-op behind.
+
+The effective policy drives everything for that person: their day boundary, late
+detection, full/half-day classification, and the expected working days their
+attendance percentage is measured against. Two employees can therefore log the
+same six hours and be recorded as `PRESENT` and `HALF_DAY` respectively.
+
+**Timezone overrides** are resolved per employee, so admin corrections entered as
+`HH:mm` are interpreted in *that employee's* wall clock and the CSV export carries
+a Timezone column. The admin dashboard's notion of "today" stays on the company
+timezone.
+
 ## How attendance is calculated
 
 - **Day bucketing.** A "day" is a calendar day in the *company* timezone, stored
@@ -172,6 +201,9 @@ path if you are ever locked out of every admin account.
 - **Sessions are the source of truth.** `PunchSession` rows hold each IN→OUT
   pair; `Attendance` caches the roll-up (first in, last out, total minutes,
   status, flags) and is recomputed from sessions on every change.
+- **Effective policy.** Every calculation resolves the employee's own schedule
+  merged over the company default; reports batch this into one query rather than
+  one per employee.
 - **Status.** `workedMinutes >= fullDayMinutes` → `PRESENT`, otherwise
   `HALF_DAY`. `ABSENT` is never derived from a punch — it means a working day
   with no record at all, or an explicit admin override. Admin-set `ON_LEAVE`,
@@ -185,7 +217,8 @@ path if you are ever locked out of every admin account.
 
 ```
 prisma/
-  schema.prisma            # User, Attendance, PunchSession, WorkPolicy, Holiday, AuditLog
+  schema.prisma            # User, Attendance, PunchSession, WorkPolicy,
+                           # EmployeeSchedule, Holiday, AuditLog
   migrations/              # committed SQL migrations
   seed.ts                  # idempotent bootstrap + optional demo data
 src/
@@ -214,5 +247,10 @@ src/
   lockout is the durable defence; put a WAF in front for network-level limits.
 - Attendance list views are capped (1000 records on screen, 20 000 per export).
   Add pagination before running very large orgs off the UI.
+- **Overnight shifts that cross midnight are not fully modelled.** A schedule
+  such as 22:00–06:00 is accepted, and late detection against the 22:00 start
+  works, but the day bucket is still the calendar day of the check-in — so one
+  night's work is split across two attendance records, and the early-out flag is
+  unreliable for those shifts. Treat night-shift totals as per-calendar-day.
 - There is no geofencing, device binding, or leave-request workflow — leave is
   recorded by an administrator setting `ON_LEAVE` on a day.

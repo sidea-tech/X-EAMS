@@ -2,7 +2,7 @@ import { adminUpsertAttendance } from "@/lib/attendance";
 import { audit } from "@/lib/audit";
 import { clientIp, handler, notFound, ok, parseJson } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { getPolicy } from "@/lib/policy";
+import { getPolicyFor } from "@/lib/policy";
 import { requireApi } from "@/lib/session";
 import { wallTimeToInstant } from "@/lib/time";
 import { adminAttendanceSchema } from "@/lib/validation";
@@ -13,13 +13,16 @@ export const dynamic = "force-dynamic";
 export const POST = handler(async (request: Request) => {
   const admin = await requireApi("ADMIN");
   const input = await parseJson(request, adminAttendanceSchema);
-  const policy = await getPolicy();
 
   const employee = await prisma.user.findUnique({
     where: { id: input.userId },
     select: { id: true, employeeCode: true },
   });
   if (!employee) throw notFound("Employee not found.");
+
+  // Times are entered as the employee's own wall clock, so they must be
+  // converted using that employee's effective timezone, not the company's.
+  const policy = await getPolicyFor(input.userId);
 
   const toInstant = (value: string | undefined) =>
     value === undefined ? undefined : value === "" ? null : wallTimeToInstant(input.date, value, policy.timezone);

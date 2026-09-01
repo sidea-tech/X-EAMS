@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PunchPanel } from "@/components/PunchPanel";
 import {
+  Badge,
   Card,
   CardHeader,
   EmptyState,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui";
 import { getTodayState, summarise } from "@/lib/attendance";
 import { prisma } from "@/lib/prisma";
-import { getPolicy } from "@/lib/policy";
+import { WEEKDAY_SHORT, getPolicy, getPolicyFor } from "@/lib/policy";
 import { requirePage } from "@/lib/session";
 import {
   currentMonthKey,
@@ -32,7 +33,16 @@ export const dynamic = "force-dynamic";
 
 export default async function EmployeeDashboard() {
   const user = await requirePage("EMPLOYEE");
-  const policy = await getPolicy();
+  const [policy, companyPolicy] = await Promise.all([getPolicyFor(user.id), getPolicy()]);
+  // Only worth calling out the schedule as "individual" when it truly differs.
+  const isCustomSchedule =
+    policy.workStart !== companyPolicy.workStart ||
+    policy.workEnd !== companyPolicy.workEnd ||
+    policy.fullDayMinutes !== companyPolicy.fullDayMinutes ||
+    policy.halfDayMinutes !== companyPolicy.halfDayMinutes ||
+    policy.graceMinutes !== companyPolicy.graceMinutes ||
+    policy.timezone !== companyPolicy.timezone ||
+    policy.workingDays.join() !== companyPolicy.workingDays.join();
   const month = currentMonthKey(policy.timezone);
   const { from, to, label } = monthBounds(month);
   const today = dayKey(new Date(), policy.timezone);
@@ -106,6 +116,44 @@ export default async function EmployeeDashboard() {
               tone="brand"
             />
           </div>
+
+          <Card>
+            <CardHeader
+              title="Your schedule"
+              description={
+                isCustomSchedule
+                  ? "An individual schedule set by your administrator."
+                  : "The company default schedule."
+              }
+              action={isCustomSchedule ? <Badge tone="brand">Individual</Badge> : null}
+            />
+            <dl className="divide-y divide-line text-sm">
+              <div className="flex items-center justify-between px-5 py-3">
+                <dt className="text-muted">Shift</dt>
+                <dd className="nums font-medium">
+                  {policy.workStart} – {policy.workEnd}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
+                <dt className="text-muted">Working days</dt>
+                <dd className="font-medium">
+                  {policy.workingDays.map((d) => WEEKDAY_SHORT[d]).join(", ")}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
+                <dt className="text-muted">Full day / half day</dt>
+                <dd className="nums font-medium">
+                  {formatDuration(policy.fullDayMinutes)} / {formatDuration(policy.halfDayMinutes)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between px-5 py-3">
+                <dt className="text-muted">Late after</dt>
+                <dd className="nums font-medium">
+                  {policy.workStart} + {policy.graceMinutes} min
+                </dd>
+              </div>
+            </dl>
+          </Card>
 
           <Card>
             <CardHeader title={`${label} at a glance`} />

@@ -7,7 +7,7 @@ import {
 import { IconDownload } from "@/components/icons";
 import { Button, Card, Field, Input, PageHeader, Select, StatCard } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
-import { getPolicy } from "@/lib/policy";
+import { getPoliciesFor, getPolicy } from "@/lib/policy";
 import { requirePage } from "@/lib/session";
 import {
   currentMonthKey,
@@ -83,8 +83,12 @@ export default async function AdminAttendancePage({
     }),
   ]);
 
+  // Each row is rendered — and later edited — in that employee's own timezone.
+  const { byUser: rowPolicies } = await getPoliciesFor([...new Set(records.map((r) => r.userId))]);
+
   const rows: AttendanceRowDto[] = records.map((r) => {
     const key = dayKeyFromDate(r.date);
+    const tz = rowPolicies.get(r.userId)?.timezone ?? policy.timezone;
     return {
       id: r.id,
       dayKey: key,
@@ -94,8 +98,8 @@ export default async function AdminAttendancePage({
       fullName: r.user.fullName,
       department: r.user.department,
       status: r.status,
-      checkIn: toHhMmInput(r.firstCheckIn, policy.timezone),
-      checkOut: toHhMmInput(r.lastCheckOut, policy.timezone),
+      checkIn: toHhMmInput(r.firstCheckIn, tz),
+      checkOut: toHhMmInput(r.lastCheckOut, tz),
       workedLabel: formatDuration(r.workedMinutes),
       workedMinutes: r.workedMinutes,
       isLate: r.isLate,

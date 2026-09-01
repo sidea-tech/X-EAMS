@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { summarise } from "@/lib/attendance";
 import { prisma } from "@/lib/prisma";
-import { getPolicy } from "@/lib/policy";
+import { getPolicyFor } from "@/lib/policy";
 import { requirePage } from "@/lib/session";
 import {
   currentMonthKey,
@@ -38,7 +38,7 @@ export default async function MyAttendancePage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const user = await requirePage("EMPLOYEE");
-  const policy = await getPolicy();
+  const policy = await getPolicyFor(user.id);
   const params = await searchParams;
 
   const parsed = monthKeySchema.safeParse(params.month);

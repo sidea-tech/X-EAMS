@@ -1,7 +1,7 @@
 import { AttendanceStatus, type Prisma, PunchSource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { conflict } from "@/lib/http";
-import { getPolicy, type Policy } from "@/lib/policy";
+import { getPoliciesFor, getPolicyFor, type Policy } from "@/lib/policy";
 import {
   dateFromDayKey,
   dayKey,
@@ -92,7 +92,8 @@ export async function punch(
   ip: string | null,
   source: PunchSource = PunchSource.WEB,
 ): Promise<PunchResult> {
-  const policy = await getPolicy();
+  // The employee's own schedule decides their day boundary, shift and thresholds.
+  const policy = await getPolicyFor(userId);
   const now = new Date();
   const key = dayKey(now, policy.timezone);
   const date = dateFromDayKey(key);
@@ -158,7 +159,7 @@ export type TodayState = {
 };
 
 export async function getTodayState(userId: string): Promise<TodayState> {
-  const policy = await getPolicy();
+  const policy = await getPolicyFor(userId);
   const key = dayKey(new Date(), policy.timezone);
   const record = await prisma.attendance.findUnique({
     where: { userId_date: { userId, date: dateFromDayKey(key) } },
@@ -211,7 +212,7 @@ export async function adminUpsertAttendance(input: {
   note?: string | null;
   editorId: string;
 }) {
-  const policy = await getPolicy();
+  const policy = await getPolicyFor(input.userId);
   const date = dateFromDayKey(input.dayKey);
 
   return prisma.$transaction(async (tx) => {
@@ -308,9 +309,6 @@ export async function summarise(
   to: string,
   filter: { userId?: string; department?: string } = {},
 ): Promise<SummaryRow[]> {
-  const policy = await getPolicy();
-  const todayKey = dayKey(new Date(), policy.timezone);
-
   const [users, records, holidays] = await Promise.all([
     prisma.user.findMany({
       where: {
@@ -342,8 +340,11 @@ export async function summarise(
   ]);
 
   const holidayKeys = new Set(holidays.map((h) => dayKeyFromDate(h.date)));
-  const expected = expectedWorkingDays(from, to, policy, holidayKeys, todayKey);
-  const expectedSet = new Set(expected);
+
+  // Expected working days are now per-employee: two people can differ on both
+  // their working weekdays and their timezone, so "today" differs too.
+  const { base, byUser: policies } = await getPoliciesFor(users.map((u) => u.id));
+  const now = new Date();
 
   const byUser = new Map<string, typeof records>();
   for (const r of records) {
@@ -353,6 +354,16 @@ export async function summarise(
   }
 
   return users.map((user) => {
+    const policy = policies.get(user.id) ?? base;
+    const expected = expectedWorkingDays(
+      from,
+      to,
+      policy,
+      holidayKeys,
+      dayKey(now, policy.timezone),
+    );
+    const expectedSet = new Set(expected);
+
     const rows = byUser.get(user.id) ?? [];
     const row: SummaryRow = {
       userId: user.id,

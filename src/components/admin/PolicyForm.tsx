@@ -79,8 +79,8 @@ export function PolicyForm({ policy }: { policy: PolicyDto }) {
   return (
     <Card>
       <CardHeader
-        title="Work policy"
-        description="Drives late-arrival detection, day classification and reporting."
+        title="Default work policy"
+        description="Applies to every employee who has no individual schedule. Override per person from Employees → Schedule."
       />
       <form onSubmit={save} className="space-y-5 p-5">
         {result ? (

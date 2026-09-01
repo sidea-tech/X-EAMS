@@ -118,3 +118,42 @@ export const holidaySchema = z.object({
   date: dayKeySchema,
   name: trimmed(120).min(2, "Holiday name is required."),
 });
+
+/* ------------------------------------------- per-employee schedule override */
+
+/**
+ * A field left blank means "inherit the company default", so empty string,
+ * null and a missing key all normalise to null.
+ */
+function inheritable<S extends z.ZodTypeAny>(inner: S) {
+  return z
+    // The blank/null members must come FIRST: a union takes the first matching
+    // option, and `z.coerce.number()` happily turns "" into 0 — which would
+    // record a real "0 minutes" override where the admin meant "inherit".
+    .union([z.literal(""), z.null(), inner])
+    .optional()
+    .transform((value) => (value === "" || value === null || value === undefined ? null : value));
+}
+
+export const scheduleSchema = z
+  .object({
+    workStart: inheritable(z.string().regex(/^\d{1,2}:\d{2}$/, "Use HH:mm.")),
+    workEnd: inheritable(z.string().regex(/^\d{1,2}:\d{2}$/, "Use HH:mm.")),
+    graceMinutes: inheritable(z.coerce.number().int().min(0).max(240)),
+    fullDayMinutes: inheritable(z.coerce.number().int().min(60).max(1440)),
+    halfDayMinutes: inheritable(z.coerce.number().int().min(30).max(1440)),
+    workingDays: z
+      .array(z.coerce.number().int().min(0).max(6))
+      .max(7)
+      .optional()
+      .transform((v) => [...new Set(v ?? [])].sort((a, b) => a - b)),
+    timezone: inheritable(trimmed(64).min(1)),
+    note: inheritable(trimmed(300).min(1)),
+  })
+  .refine(
+    (v) =>
+      v.fullDayMinutes === null ||
+      v.halfDayMinutes === null ||
+      v.halfDayMinutes <= v.fullDayMinutes,
+    { message: "Half-day minutes cannot exceed full-day minutes.", path: ["halfDayMinutes"] },
+  );
